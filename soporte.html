@@ -60,7 +60,6 @@
   </style>
 </head>
 <body>
-
 <div class="topbar">
   <div class="topbar-left">
     <div class="brand">ÈNIGME</div>
@@ -72,7 +71,6 @@
     <a href="enigme-corp-acceso.html" class="btn-back"><div class="back-arr"></div>Volver</a>
   </div>
 </div>
-
 <div class="chat-outer">
   <div class="chat-wrap">
     <div class="messages" id="messages">
@@ -82,7 +80,7 @@
           <div class="msg-sender">Abril · ÈNIGME</div>
           <div class="msg-content">
             Hola, soy <strong>Abril</strong>, tu asistente corporativa de ÈNIGME Honduras.<br><br>
-            Estoy aquí para orientarte en todo lo relacionado con la empresa: comisiones, pedidos, estructura, pagos, tecnología, crecimiento y mucho más.<br><br>
+            Estoy aquí para orientarte en todo: comisiones, pedidos, estructura, pagos, metas y mucho más.<br><br>
             <em>¿En qué puedo ayudarte hoy?</em>
           </div>
         </div>
@@ -100,575 +98,553 @@
 </div>
 
 <script>
+// ══════════════════════════════════════════════════════════════════
+//  MOTOR FUZZY — maneja errores ortográficos automáticamente
+// ══════════════════════════════════════════════════════════════════
+function n(t){
+  return (t||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[¿¡?!.,;:()"'\-_]/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+
+// Distancia Levenshtein simplificada
+function levenshtein(a,b){
+  if(a===b)return 0;
+  if(a.length===0)return b.length;
+  if(b.length===0)return a.length;
+  const m=[];
+  for(let i=0;i<=b.length;i++)m[i]=[i];
+  for(let j=0;j<=a.length;j++)m[0][j]=j;
+  for(let i=1;i<=b.length;i++)
+    for(let j=1;j<=a.length;j++)
+      m[i][j]=b[i-1]===a[j-1]?m[i-1][j-1]:Math.min(m[i-1][j-1]+1,m[i][j-1]+1,m[i-1][j]+1);
+  return m[b.length][a.length];
+}
+
+// Comprobar si dos palabras son similares (tolera 1-2 errores)
+function similar(a,b){
+  if(a===b)return true;
+  if(a.length<=3||b.length<=3)return a===b;
+  const maxDist=a.length<=5?1:2;
+  return levenshtein(a,b)<=maxDist;
+}
+
+// Score de coincidencia entre query y keywords
+function scoreMatch(query,keywords){
+  const qWords=n(query).split(' ').filter(w=>w.length>1);
+  let total=0;
+  for(const kw of keywords){
+    const kwN=n(kw);
+    // Coincidencia exacta de frase
+    if(n(query).includes(kwN)){
+      total+=kwN.split(' ').length*3;
+      continue;
+    }
+    // Coincidencia por palabras con tolerancia fuzzy
+    const kwWords=kwN.split(' ').filter(w=>w.length>1);
+    let matched=0;
+    for(const kw_w of kwWords){
+      for(const q_w of qWords){
+        if(similar(q_w,kw_w)){matched++;break;}
+      }
+    }
+    if(kwWords.length>0){
+      const ratio=matched/kwWords.length;
+      if(ratio>=0.6) total+=ratio*kwWords.length*2;
+    }
+  }
+  return total;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  BASE DE CONOCIMIENTO EXPANDIDA — +2000 patrones de búsqueda
+// ══════════════════════════════════════════════════════════════════
 const KB = [
 
-  // ══════════════════════════════════════════
-  // 1. SALUDOS Y PRESENTACIÓN
-  // ══════════════════════════════════════════
-  { k:['hola','buenos dias','buenas tardes','buenas noches','hey','buen dia','buenas'],
-    r:`¡Hola! Soy <strong>Abril</strong>, tu asistente corporativa de ÈNIGME Honduras. Estoy aquí para ayudarte con cualquier consulta interna. ¿En qué puedo apoyarte?` },
+// ─────────────────────────────────────────────
+// SALUDOS Y PRESENTACIÓN
+// ─────────────────────────────────────────────
+{t:'saludo', k:['hola','buenos dias','buenas','buen dia','buenas tardes','buenas noches','hey','hi','ola','bnas','bn dia','buenas dias','buena tarde','muy buenas','holas','holaa','saludos','que tal','como estas','como esta','como estan','bienvenida','hola abril','hola buen dia','muy buenas tardes','hola que tal','hey que tal','oye hola','hola necesito ayuda','buenas necesito','hola ayuda','buenos dias necesito'],
+r:`¡Hola! Soy <strong>Abril</strong>, tu asistente corporativa de ÈNIGME Honduras. Estoy aquí para ayudarte. ¿En qué puedo orientarte hoy?`},
 
-  { k:['quien eres','como te llamas','tu nombre','eres una persona','quien es abril','que eres'],
-    r:`Soy <strong>Abril</strong>, la asistente corporativa interna de ÈNIGME Honduras. Estoy disponible para orientarte en todo lo relacionado con la empresa. ¿En qué te puedo ayudar?` },
+{t:'quien_es_abril', k:['quien eres','que eres','como te llamas','tu nombre','eres persona','eres humana','eres robot','eres real','eres automatica','quien es abril','que hace abril','abril quien','presentate','presentacion','de donde eres','quien te creo','quien te hizo','para que sirves','como funcionas','que puedes hacer','en que ayudas','que sabes','cuales son tus funciones'],
+r:`Soy <strong>Abril</strong>, la asistente corporativa interna de ÈNIGME Honduras. Estoy disponible para orientarte en todo lo relacionado con la empresa: comisiones, pedidos, roles, pagos y mucho más. ¿En qué te puedo ayudar?`},
 
-  // ══════════════════════════════════════════
-  // 2. IDENTIDAD Y CONCEPTO DE ÈNIGME
-  // ══════════════════════════════════════════
-  { k:['que es enigme','que es la empresa','sobre enigme','describe enigme','explica enigme'],
-    r:`<strong>ÈNIGME</strong> es una empresa de <strong>venta directa de lujo accesible</strong>. Comercializa joyería, perfumes y accesorios bajo marca propia, con un modelo de negocio escalable por campañas.<br><br>
-En una sola frase: <em>Un sistema de lujo accesible diseñado para dominar mercado y crecer internacionalmente.</em>` },
+// ─────────────────────────────────────────────
+// QUÉ ES ÈNIGME
+// ─────────────────────────────────────────────
+{t:'que_es_enigme', k:['que es enigme','que es la empresa','sobre enigme','describes enigme','explica enigme','enigme que es','de que trata','de que se trata','que hace enigme','a que se dedica','rubro empresa','giro empresa','tipo empresa','empresa que vende','que vende enigme','como funciona enigme','informacion enigme','info empresa','empresa enigme','la empresa','enigma empresa','enigme empresa','negocio enigme','que tipo de negocio','modelo negocio','que producen','que ofrecen'],
+r:`<strong>ÈNIGME</strong> es una empresa de <strong>venta directa de lujo accesible</strong>. Comercializa joyería, perfumes y accesorios bajo marca propia, con un modelo de negocio por campañas.<br><br>
+Representa <strong>aura, misterio y presencia</strong>, y está diseñada para crecer internacionalmente.<br><br>
+<em>En una frase: un sistema de lujo accesible diseñado para dominar mercado y crecer internacionalmente.</em>`},
 
-  { k:['que representa','significado enigme','aura','misterio','presencia','concepto marca'],
-    r:`ÈNIGME representa <strong>aura, misterio y presencia</strong>. Es una marca con identidad visual definida, narrativa propia y un concepto sólido orientado al consumidor aspiracional.` },
+{t:'fundador', k:['quien es el fundador','fundador','carlos armas','quien creo','quien fundo','creador enigme','dueno','duenio','propietario','director','ceo','jefe','lider empresa','quien dirige','quien manda','quien es el jefe','fundadora','cabeza empresa','cabecera empresa','quien es carlos','carlos martinez','armas martinez'],
+r:`El fundador de ÈNIGME es <strong>Carlos Armas Martínez</strong>, quien dirige y desarrolla la empresa desde <strong>Madrid</strong>, con operaciones iniciando en <strong>Honduras</strong>.`},
 
-  { k:['quien es el fundador','fundador','carlos armas','quien creo enigme','quien fundo'],
-    r:`El fundador de ÈNIGME es <strong>Carlos Armas Martínez</strong>, quien dirige y desarrolla la empresa desde <strong>Madrid</strong>, con operaciones iniciando en <strong>Honduras</strong>.` },
-
-  { k:['objetivo principal','para que existe','mision','proposito','objetivo de enigme'],
-    r:`El objetivo principal de ÈNIGME es la <strong>rentabilidad y expansión internacional</strong>. La empresa nació con visión global, estructura escalable y un modelo diseñado para crecer de forma sostenida.` },
-
-  { k:['donde inicia','honduras','donde opera','pais','centroamerica','origen'],
-    r:`ÈNIGME inicia operaciones en <strong>Honduras</strong>, con desarrollo estratégico desde <strong>Madrid</strong>. La visión de expansión contempla <strong>Centroamérica y otros mercados internacionales</strong>.` },
-
-  { k:['que vende','productos','joyeria','perfumes','accesorios','catalogo productos','articulos'],
-    r:`ÈNIGME comercializa:<br><ul>
-<li><strong>Joyería</strong> de alta calidad</li>
+{t:'productos', k:['que vende','productos','joyeria','joyas','perfumes','accesorios','que productos','articulos','catalogo productos','que ofrece','que tiene','coleccion','linea de productos','que hay','tipos productos','venden que','ofrecen que','perfum','joya','accesorio','anillos','aretes','collares','pulseras','aritos','pendientes','cadenas','bolsos','carteras'],
+r:`ÈNIGME comercializa:<br><ul>
+<li><strong>Joyería</strong>: aretes, collares, pulseras, anillos, cadenas</li>
 <li><strong>Perfumes</strong></li>
-<li><strong>Accesorios</strong> de lujo accesible</li>
+<li><strong>Accesorios</strong>: bolsos, carteras y más</li>
 </ul>
-Todo bajo <strong>marca propia</strong>, con catálogo virtual actualizado por campañas.` },
+Todo bajo <strong>marca propia</strong>, con catálogo virtual actualizado por campañas.`},
 
-  { k:['marca propia','tiene marca','es marca','diseño propio'],
-    r:`Sí, ÈNIGME opera bajo <strong>marca propia</strong> con identidad visual definida, diferenciación clara en el mercado y una propuesta de <strong>lujo accesible</strong>.` },
+// ─────────────────────────────────────────────
+// ESTRUCTURA CORPORATIVA
+// ─────────────────────────────────────────────
+{t:'estructura', k:['cual es la estructura','jerarquia','niveles empresa','organigrama','como esta organizada','estructura empresa','niveles','rangos','cargos','posiciones','puestos','quien esta arriba','quien esta abajo','orden jerarquico','escalas','estructura corporativa','como funciona la jerarquia','los niveles de enigme','estructura de la empresa','rangos enigme','cargos enigme','como se organiza','que niveles hay','quienes mandan'],
+r:`La estructura de ÈNIGME de mayor a menor es:<br><ul>
+<li><strong>Dirección / Gerencia General</strong> — Control total</li>
+<li><strong>Gerencia Divisional</strong> — Supervisa 3-5 zonas</li>
+<li><strong>Gerencia de Zona</strong> — Gestión operativa de zona</li>
+<li><strong>Coordinadores</strong> — Organiza y recluta asesoras</li>
+<li><strong>Asesoras Estrella / VIP</strong> — Venta directa</li>
+</ul>`},
 
-  { k:['es fisica o digital','online offline','tienda fisica','tienda online','ambas'],
-    r:`ÈNIGME es <strong>ambas</strong>: tiene presencia digital (ecommerce, web corporativa, catálogo virtual) y también presencia física a través de su red de gerentes, coordinadores y asesoras en Honduras.` },
+{t:'gerencia_general', k:['gerencia general','que hace gerencia general','gerente general','funciones gerencia general','control total','maxima autoridad','quien tiene control','quien manda en todo','el jefe general','jefa general','direccion empresa','directora','director','cargo mas alto','nivel mas alto','puesto mas alto','rango mas alto','el que manda todo','gerente general que hace','gerente general funciones'],
+r:`<strong>Gerencia General</strong> tiene el <strong>control total</strong> de ÈNIGME:<br><ul>
+<li>Visibilidad completa de todas las divisiones e ingresos</li>
+<li>Registra y aprueba Gerentes Divisionales</li>
+<li>Toma decisiones estratégicas</li>
+<li>Nadie puede actuar por encima de su autoridad</li>
+</ul>`},
 
-  { k:['vision internacional','expansion internacional','otros paises','internacionalizacion'],
-    r:`Sí, ÈNIGME tiene <strong>visión internacional clara</strong>. El plan contempla expansión por Centroamérica y más mercados, respaldada por una estructura tecnológica y operativa preparada para escalar.` },
+{t:'gerencia_divisional', k:['gerencia divisional','gerente divisional','que hace divisional','funciones divisional','supervisor divisional','division','que es divisional','rol divisional','cargo divisional','divisional enigme','para que sirve divisional','divisional que hace','responsabilidades divisional','obligaciones divisional','funciones del divisional','gerente de division','la division'],
+r:`<strong>Gerencia Divisional</strong> supervisa una división completa:<br><ul>
+<li>Gestiona entre <strong>3 y 5 Gerentes de Zona</strong></li>
+<li>Registra nuevos Gerentes de Zona</li>
+<li>Ve reportes de toda su división</li>
+<li>Gana <strong>3%</strong> sobre las ventas netas de su división</li>
+<li>Reporta directamente a Gerencia General</li>
+</ul>`},
 
-  { k:['modelo escalable','es escalable','puede crecer','escalabilidad'],
-    r:`Sí, el modelo de ÈNIGME es <strong>altamente escalable</strong>. La estructura jerárquica, el sistema de campañas, la tecnología y el control financiero están diseñados para crecer de forma ordenada y rápida.` },
+{t:'gerente_zona', k:['gerente zona','gerente de zona','que hace gerente zona','funciones gerente zona','rol gerente zona','responsabilidades gerente zona','gerente de mi zona','obligaciones gerente zona','gerente zona que hace','cargo gerente zona','puesto gerente zona','para que es gerente zona','jefe de zona','lider de zona','gerente operativo','zona gerente','como trabaja gerente zona'],
+r:`El <strong>Gerente de Zona</strong> tiene estas responsabilidades:<br><ul>
+<li>Garantizar que su zona alcance la <strong>meta de ventas</strong></li>
+<li>Mantener mínimo <strong>8 coordinadores</strong> activos</li>
+<li>Crear sectores y nuevos coordinadores</li>
+<li>Subir ventas del equipo cada semana (<strong>semana administrativa</strong>)</li>
+<li>Gana <strong>2%</strong> sobre la venta neta total de su zona</li>
+</ul>`},
 
-  { k:['lujo real','lujo accesible','es caro','precio lujo','accesible'],
-    r:`ÈNIGME trabaja el concepto de <strong>lujo accesible</strong>: productos con estética y calidad premium a precios que el consumidor aspiracional puede alcanzar. Es lo que nos diferencia del lujo tradicional.` },
+{t:'coordinador', k:['coordinador','coordinadora','que es coordinador','que hace coordinador','rol coordinador','funciones coordinador','coordinadora enigme','coordinacion','organizador','reclutador','para que sirve coordinador','coordinador que hace','como ser coordinador','quiero ser coordinador','cargo coordinador','puesto coordinador','responsabilidades coordinador','obligaciones coordinador','lider sector'],
+r:`Los <strong>Coordinadores</strong> son el puente entre el Gerente de Zona y las Asesoras Estrella:<br><ul>
+<li><strong>Reclutan</strong> nuevas Asesoras Estrella</li>
+<li>Apoyan a su equipo en el proceso de ventas</li>
+<li>Reportan resultados al Gerente de Zona</li>
+<li>Con destaque pueden ascender a <strong>Coordinador Estrella</strong></li>
+</ul>`},
 
-  { k:['que lo hace diferente','diferenciacion','ventaja competitiva','por que enigme'],
-    r:`Lo que diferencia a ÈNIGME es la combinación de <strong>sistema + branding</strong>: una marca con identidad fuerte, respaldada por una estructura corporativa sólida, tecnología propia y un modelo de comisiones transparente.` },
+{t:'coordinador_estrella', k:['coordinador estrella','coordinadora estrella','que es coordinador estrella','coordinador destacado','mejor coordinador','promover coordinador','ascender coordinador','coordinador vip','coordinador especial','coordinador top','coordinador que sube','como se convierte coordinador estrella','coordinadora estrella beneficios','coordinador estrella que pasa','coordinador estrella zona'],
+r:`Un <strong>Coordinador Estrella</strong> es el coordinador que se destaca por liderazgo, reclutamiento y resultados de ventas.<br><br>
+El beneficio más importante: puede ser promovido a <strong>Gerente de Zona</strong> con zona propia asignada. Es uno de los caminos de ascenso más importantes en ÈNIGME.`},
 
-  { k:['tiene comunidad','comunidad enigme','red de vendedoras','equipo'],
-    r:`Sí, ÈNIGME construye una <strong>comunidad activa</strong> de asesoras, coordinadores y gerentes. El crecimiento del equipo es parte central del modelo, ya que la expansión depende de las personas que lo forman.` },
+{t:'asesora_estrella', k:['asesora estrella','asesoras estrella','vendedora enigme','vendedora','asesora','que es asesora','como se llama vendedora','nombre vendedora','rol asesora','funcion asesora','asesora de ventas','asesoras enigme','que hace asesora','para que sirve asesora','asesoras de enigme','soy asesora','soy vendedora','vendedoras','asesora que es'],
+r:`En ÈNIGME, las vendedoras se llaman <strong>Asesoras Estrella</strong>. Son el núcleo de las ventas directas:<br><ul>
+<li>Ganan <strong>18%</strong> en catálogo normal</li>
+<li>Ganan <strong>10%</strong> en catálogos especiales u ofertas</li>
+<li>En sus primeras <strong>6 campañas</strong> no pueden superar <strong>L 3,599</strong></li>
+<li>Al destacar pueden convertirse en <strong>Asesora VIP</strong></li>
+</ul>`},
 
-  { k:['tiene futuro','va a crecer','crecimiento enigme','perspectivas'],
-    r:`<strong>Sí</strong>. ÈNIGME está en pleno crecimiento, con base tecnológica sólida, estructura real y un modelo diseñado para <strong>escalar, automatizarse e internacionalizarse</strong>. El potencial es alto.` },
+{t:'asesora_vip', k:['asesora vip','asesoras vip','que es vip','vendedora vip','vip enigme','como ser vip','como me hago vip','ventajas vip','beneficios vip','premios vip','asesora top','mejor asesora','asesora destacada','asesora especial','asesora de alto nivel','nivel vip','rango vip','que gana vip','diferencia vip estrella'],
+r:`Las <strong>Asesoras VIP</strong> son las asesoras estrella que destacan por volumen de ventas:<br><ul>
+<li>Ventajas y beneficios <strong>exclusivos</strong> dentro del programa</li>
+<li>Premios sorpresa especiales en cada sector</li>
+<li>Reconocimiento prioritario por parte del equipo de gerencia</li>
+</ul>
+Es la categoría más alta para una asesora vendedora.`},
 
-  // ══════════════════════════════════════════
-  // 3. ESTRUCTURA EMPRESARIAL
-  // ══════════════════════════════════════════
-  { k:['cual es la estructura','jerarquia','niveles empresa','organigrama','como esta organizada'],
-    r:`La estructura de ÈNIGME es:<br><br>
-<ul>
-<li><strong>Dirección (Gerencia General)</strong> → Control total</li>
-<li><strong>Gerencia Divisional</strong> → Supervisión global de divisiones</li>
-<li><strong>Gerencia de Zona</strong> → Gestión operativa de zona</li>
-<li><strong>Coordinación</strong> → Organización de equipos y reclutamiento</li>
-<li><strong>Asesoras Estrella</strong> → Venta directa al cliente</li>
-</ul>` },
-
-  { k:['que hace direccion','gerencia general funciones','control total','maxima autoridad'],
-    r:`<strong>Dirección / Gerencia General</strong> tiene el <strong>control total</strong> de la empresa: visibilidad completa de todas las divisiones, ingresos globales, registro de gerentes divisionales y toma de decisiones estratégicas.` },
-
-  { k:['que hace gerencia divisional','funciones divisional','supervision divisional'],
-    r:`<strong>Gerencia Divisional</strong> realiza la <strong>supervisión global</strong> de su división. Gestiona entre 3 y 5 Gerentes de Zona, registra nuevos gerentes de zona y reporta directamente a Dirección.` },
-
-  { k:['que hace gerente zona','funciones gerente zona','gestion operativa','zona'],
-    r:`<strong>Gerente de Zona</strong> realiza la <strong>gestión operativa</strong> de su zona:<br><ul>
-<li>Crea sectores y coordina su equipo</li>
-<li>Mantiene mínimo <strong>8 coordinadores</strong></li>
-<li>Sube ventas semanalmente desde el sistema</li>
-<li>Asegura el cumplimiento de metas</li>
-</ul>` },
-
-  { k:['que hace coordinacion','coordinador funciones','organiza equipos','rol coordinador'],
-    r:`<strong>Coordinación</strong> organiza los equipos de asesoras: recluta nuevas Asesoras Estrella, las apoya en el proceso de ventas y reporta resultados al Gerente de Zona.` },
-
-  { k:['que hace asesora','funcion asesora','rol asesora','vendedora que hace'],
-    r:`Las <strong>Asesoras Estrella</strong> son las encargadas de la <strong>venta directa</strong> al cliente final a través del catálogo de ÈNIGME.` },
-
-  { k:['se puede ascender','hay ascenso','crecer dentro','subir de rango','promocion interna'],
-    r:`<strong>Sí</strong>, existe un sistema claro de ascenso:<br><ul>
-<li><strong>Asesora Estrella</strong> destacada → <strong>Asesora VIP</strong></li>
-<li><strong>Coordinadora Estrella</strong> → <strong>Gerente de Zona</strong> (zona propia)</li>
-<li><strong>Gerente de Zona</strong> → posición superior según crecimiento</li>
-</ul>` },
-
-  { k:['hay territorios','se asignan zonas','territorio asignado','zona asignada'],
-    r:`Sí, en ÈNIGME se asignan <strong>territorios y zonas específicas</strong> a cada Gerente de Zona. Cada zona es responsabilidad de su gerente y tiene metas propias de ventas.` },
-
-  { k:['hay evaluacion','desempeno','metricas','se evalua','control rendimiento'],
-    r:`Sí, existe un sistema de <strong>evaluación de desempeño y métricas</strong>. Se controlan ventas por persona, por zona, por campaña y se generan reportes para tomar decisiones informadas.` },
-
-  { k:['hay metas','objetivos ventas','meta mensual','meta campaña'],
-    r:`Sí, cada nivel tiene <strong>metas de ventas</strong> asignadas por campaña. Las metas son establecidas por la Gerencia Divisional en coordinación con Dirección, y cada Gerente de Zona debe cumplirlas con su equipo.` },
-
-  { k:['hay dashboards','panel control','vista ventas','tiempo real ventas'],
-    r:`Sí, el sistema corporativo de ÈNIGME incluye <strong>dashboards</strong> con visualización de KPIs, ventas en tiempo real, reportes por zona y por campaña. Todo accesible según el nivel jerárquico del usuario.` },
-
-  { k:['hay informes','reportes','exportar datos','excel informe'],
-    r:`Sí, el sistema genera <strong>informes y reportes</strong> exportables. Se puede exportar a Excel, consultar historial de ventas y comisiones, y obtener desglose por persona, zona o campaña.` },
-
-  { k:['hay control acceso','permisos sistema','login roles','acceso por nivel'],
-    r:`Sí, el sistema tiene <strong>login por roles con permisos diferenciados</strong>. Cada nivel jerárquico accede únicamente a la información que le corresponde, garantizando la seguridad y confidencialidad de los datos.` },
-
-  // ══════════════════════════════════════════
-  // 4. COMISIONES Y GANANCIAS
-  // ══════════════════════════════════════════
-  { k:['cuanto gana asesora','comision asesora estrella','18%','porcentaje vendedora','gana vendedora'],
-    r:`Las <strong>Asesoras Estrella</strong> ganan:<br><ul>
+// ─────────────────────────────────────────────
+// COMISIONES
+// ─────────────────────────────────────────────
+{t:'comision_asesora', k:['cuanto gana asesora','comision asesora','comision vendedora','18 porciento','18%','porcentaje vendedora','gana asesora','ganancias asesora','cuanto se gana','cuanto se gana vendiendo','gano como asesora','cuanto puedo ganar','cuanto me toca','mi comision','comision normal','porcentaje normal','cuanto es la comision','que porcentaje','comision catalogo normal','porcentaje catalogo','gana una asesora','gana la asesora'],
+r:`Las <strong>Asesoras Estrella</strong> ganan:<br><ul>
 <li><strong>18%</strong> sobre la venta neta en catálogo normal</li>
-<li><strong>10%</strong> en catálogos de oferta, liquidación o especiales</li>
+<li><strong>10%</strong> sobre la venta neta en ofertas, liquidaciones o catálogos especiales</li>
 </ul>
 Siempre sobre el <strong>neto</strong> (después del 15% de impuestos).<br><br>
-<em>Ejemplo:</em> Pedido L 1,000 → Impuesto L 150 → Neto L 850 → Comisión = <strong>L 153</strong>` },
+<em>Ejemplo:</em> Pedido L 1,000 → Impuesto L 150 → Neto L 850 → Comisión = <strong>L 153</strong>`},
 
-  { k:['que es venta neta','venta neta','sin impuestos','neto'],
-    r:`La <strong>venta neta</strong> es el monto del pedido <strong>después de descontar el 15% de impuestos</strong>. Todas las comisiones en ÈNIGME se calculan sobre este valor neto, no sobre el bruto.` },
+{t:'comision_ofertas', k:['comision ofertas','porcentaje oferta','comision liquidacion','10 porciento','10%','catalogo especial comision','oferta comision','porcentaje especial','comision descuento','gana en oferta','cuanto en liquidacion','catalogo especial','porcentaje catalogo especial','cuanto gano en oferta','comision campana especial'],
+r:`En catálogos de <strong>ofertas, liquidaciones o especiales</strong>, la comisión es del <strong>10%</strong> sobre la venta neta.<br><br>
+<em>Ejemplo:</em> Venta neta de L 800 en oferta → Comisión = <strong>L 80</strong>`},
 
-  { k:['cuanto gana gerente zona','comision gerente zona','2%','porcentaje zona'],
-    r:`El <strong>Gerente de Zona</strong> gana el <strong>2%</strong> sobre la venta neta total de toda su zona por campaña.<br><br>
-<em>Ejemplo:</em> Zona con venta neta de L 50,000 → Comisión del gerente = <strong>L 1,000</strong>` },
+{t:'comision_zona', k:['cuanto gana gerente zona','comision gerente zona','2 por ciento zona','2%','porcentaje zona','gana gerente zona','comision de zona','ganancias zona','cuanto le toca gerente','cuanto gana mi gerente','ingreso gerente zona','comision sobre zona','que porcentaje zona','2% zona'],
+r:`El <strong>Gerente de Zona</strong> gana el <strong>2%</strong> sobre la venta neta total de toda su zona por campaña.<br><br>
+<em>Ejemplo:</em> Zona con venta neta de L 50,000 → Comisión = <strong>L 1,000</strong><br><br>
+Cuanto más grande y activa sea la zona, mayor es la comisión.`},
 
-  { k:['cuanto gana divisional','comision divisional','3%','porcentaje divisional'],
-    r:`El <strong>Gerente Divisional</strong> gana el <strong>3%</strong> sobre la venta neta total de toda su división (suma de todas las zonas).<br><br>
-Con 3 a 5 zonas activas, el volumen puede generar comisiones muy atractivas.` },
+{t:'comision_divisional', k:['cuanto gana divisional','comision divisional','3 por ciento','3%','porcentaje divisional','gana divisional','ingreso divisional','comision gerente divisional','cuanto gana gerente divisional','ganancias divisional','comision de division','3% division','que gana el divisional'],
+r:`El <strong>Gerente Divisional</strong> gana el <strong>3%</strong> sobre la venta neta total de toda su división.<br><br>
+Con 3-5 zonas activas, puede ser una comisión muy considerable.<br><br>
+<em>Ejemplo:</em> División con venta neta de L 200,000 → Comisión = <strong>L 6,000</strong>`},
 
-  { k:['comisiones se pagan','cuando se pagan','pago comisiones','cobro comisiones'],
-    r:`Las comisiones se <strong>calculan automáticamente</strong> al cierre de cada campaña y se registran en el sistema. El pago se gestiona a través de <strong>transferencia bancaria</strong>, de forma transparente y trazable.` },
+{t:'calculo_comision', k:['como se calcula comision','calculo de comision','formula comision','calcular comision','como calculo','ejemplo calculo','calculo ejemplo','cuanto me queda','calculo ganancias','calcular ganancias','como calcular','formula de ganancias','calculo ventas','ejemplo comision','cuanto serian','cuanto quedaria','como se saca','como se hace el calculo'],
+r:`El cálculo de comisiones en ÈNIGME se hace siempre en 3 pasos:<br><br>
+<strong>1.</strong> Pedido bruto - 15% impuesto = <strong>Venta neta</strong><br>
+<strong>2.</strong> Venta neta × % de comisión = <strong>Tu ganancia</strong><br><br>
+<em>Ejemplo completo:</em><br>
+Pedido: L 2,000 → Impuesto: L 300 → Neto: <strong>L 1,700</strong><br>
+Asesora (18%): <strong>L 306</strong><br>
+Gerente Zona (2%): <strong>L 34</strong><br>
+Gerente Divisional (3%): <strong>L 51</strong>`},
 
-  { k:['hay premios','incentivos','desde cuando premio','premio desde','2499'],
-    r:`Sí, ÈNIGME tiene un <strong>programa de premios e incentivos</strong>. Los premios se ganan a partir de <strong>L 2,499</strong> de ventas y siempre se entregan en la <strong>campaña siguiente</strong> a la que fueron alcanzados.` },
+// ─────────────────────────────────────────────
+// IMPUESTOS
+// ─────────────────────────────────────────────
+{t:'impuestos', k:['impuesto','impuestos','15%','15 por ciento','cuanto de impuesto','descuento impuesto','isv','iva','tributacion','neto','venta neta','cuanto se descuenta','descuento pedido','impuesto pedido','que impuesto','impuesto de venta','impuesto aplicado','cuanto se quita','cuanto se rebaja','impueto','impuesto comision','sobre que se calcula','base calculo','base imponible','antes de impuesto','despues de impuesto','quitar impuesto'],
+r:`De cada pedido se descuenta el <strong>15% de impuestos</strong> sobre el total bruto.<br><br>
+<strong>Todas las comisiones</strong> se calculan siempre sobre el <strong>monto neto</strong> (después del impuesto).<br><br>
+<em>Fórmula:</em><br>
+L 2,000 bruto → −L 300 (15%) → <strong>L 1,700 neto</strong><br>
+Sobre ese neto se aplican los porcentajes de comisión.`},
 
-  { k:['comisiones son fijas','se pueden cambiar','porcentajes fijos','pueden variar'],
-    r:`Las comisiones actuales son <strong>fijas</strong> y están claramente definidas. En la evolución del sistema pueden ajustarse, pero cualquier cambio se comunicará oficialmente a toda la estructura.` },
+// ─────────────────────────────────────────────
+// PEDIDOS
+// ─────────────────────────────────────────────
+{t:'pedido_minimo', k:['pedido minimo','minimo pedido','cuanto minimo','1999','pedido valido','minimo de pedido','minimo para pedir','pedido desde cuanto','cuanto para que valga','pedido valido desde','a partir de cuanto','desde cuanto es valido','pedido minimo enigme','cuanto minimo para pedir','pedido minimo valido','1999 lempiras','l1999','l 1999','minimo de venta'],
+r:`El <strong>pedido mínimo válido</strong> en ÈNIGME es de <strong>L 1,999</strong>.<br><br>
+Los pedidos que no lleguen a este monto <strong>no se procesan como válidos</strong> dentro de las métricas de campaña.`},
 
-  { k:['hay bonos','bono extra','ingreso extra','incentivo adicional'],
-    r:`Sí, existen <strong>incentivos adicionales y bonos</strong> según desempeño. Las Asesoras VIP y los coordinadores estrella tienen reconocimientos especiales adicionales a las comisiones estándar.` },
+{t:'pedido_bajo_minimo', k:['pedido menor 1999','menos de 1999','pedido chico','pedido pequeno','pedido pequeno que pasa','no llego al minimo','que pasa si no llego','pedido invalido','pedido sin minimo','abajo del minimo','pedido incompleto','cuanto paga si no llega','logistica pedido chico','199 logistica','pago logistica'],
+r:`Si un pedido es inferior a <strong>L 1,999</strong>, paga <strong>L 199 de logística</strong> pero <strong>no cuenta como pedido válido</strong> dentro de las métricas de campaña.<br><br>
+Se recomienda siempre orientar a las asesoras a alcanzar el mínimo de L 1,999.`},
 
-  { k:['hay penalizaciones','penalidad','descuento comision','sancion'],
-    r:`Sí, existen <strong>penalizaciones</strong> en casos de incumplimiento de normas corporativas, manejo inadecuado de fondos o irregularidades en el sistema. Los detalles los gestiona Gerencia General.` },
+{t:'frecuencia_pedidos', k:['cada cuanto llegan pedidos','frecuencia pedidos','cuanto demora pedido','dias pedido','tiempo pedido','cuando llega pedido','25 dias','cada cuanto hay pedido','cada cuanto se hace pedido','periodicidad pedido','cada cuantos dias','plazo pedido','cuanto tarda','demora entrega','tiempo de entrega','cuando recibo','cuando llega','plazo entrega pedido'],
+r:`Los pedidos llegan aproximadamente <strong>cada 25 días</strong>, según la logística de distribución.<br><br>
+Este tiempo puede <strong>variar en temporadas altas</strong> (festividades, campañas especiales). El Gerente de Zona recibirá la confirmación de fecha exacta por los canales oficiales.`},
 
-  { k:['hay transparencia comisiones','puedo ver comisiones','historial comisiones','consultar ganancias'],
-    r:`Sí, el sistema ofrece <strong>total transparencia</strong>: puedes consultar el historial de comisiones, ver el desglose por campaña, por persona y por zona. Todo es auditable y exportable.` },
+{t:'pago_pedido', k:['como se paga pedido','como pagar pedido','pago pedido','60 40','60%','40%','pago inicial pedido','cuanto pago al pedir','pago anticipado','cuanto pago primero','cuanto pago despues','esquema pago','estructura pago','forma pago pedido','pagar pedido','metodo pago pedido','pago en partes','pago fraccionado','cuando pago resto','resto del pago','segunda parte pago'],
+r:`El esquema de pago de pedidos en ÈNIGME es:<br><ul>
+<li><strong>60%</strong> se paga al momento de <strong>enviar el pedido</strong></li>
+<li><strong>40%</strong> restante se paga <strong>a la semana de recibir el pedido</strong></li>
+</ul>
+Formas aceptadas: <strong>tarjeta de crédito</strong> o <strong>transferencia bancaria</strong>.`},
 
-  { k:['hay rentabilidad','es rentable','genera dinero','negocio rentable'],
-    r:`ÈNIGME está <strong>diseñada para ser rentable</strong>. El modelo de comisiones, la estructura de costos controlada y el crecimiento por zonas garantizan márgenes sostenibles a medida que escala.` },
+{t:'envio', k:['costo envio','precio envio','envio cuanto','cuanto cuesta envio','199','envio 199','flete','envio lempiras','costo de entrega','precio entrega','cuanto cobran envio','gasto envio','envio gratuito','es gratis el envio','pagan envio','envio enigme','cuanto es el envio'],
+r:`El costo de envío es de <strong>L 199</strong> por pedido.<br><br>
+Este costo aplica a partir del pedido mínimo de <strong>L 1,999</strong>.`},
 
-  // ══════════════════════════════════════════
-  // 5. PEDIDOS Y NOMBRAMIENTOS
-  // ══════════════════════════════════════════
-  { k:['pedido minimo','minimo pedido','cuanto minimo','1999','pedido valido'],
-    r:`El <strong>pedido mínimo válido</strong> en ÈNIGME es de <strong>L 1,999</strong>.<br><br>
-Los pedidos que no alcancen este monto <strong>no son procesados como válidos</strong>. Asegúrate de que las asesoras de tu equipo completen ese mínimo.` },
+// ─────────────────────────────────────────────
+// CATÁLOGO
+// ─────────────────────────────────────────────
+{t:'catalogo', k:['catalogo','catalogo virtual','catalogo fisico','catalogo digital','precio catalogo','catalogo enigme','cuanto catalogo fisico','99 lempiras','catalogo precio','cuanto cuesta catalogo','ver catalogo','donde ver catalogo','catalogo que es','como es el catalogo','catalogo de productos','catalogo de ventas','cuanto vale catalogo','tiene catalogo','hay catalogo fisico','solo digital','por que digital','catalogo en papel'],
+r:`ÈNIGME trabaja principalmente con <strong>catálogo virtual</strong> por compromiso ambiental como marca premium.<br><br>
+El <strong>catálogo físico</strong> está disponible con un costo de <strong>L 99</strong>.<br><br>
+El catálogo virtual puede compartirse fácilmente con todas las clientas de forma digital.`},
 
-  { k:['pedido inferior','menos de 1999','pedido pequeño','no llega al minimo'],
-    r:`Si un pedido es inferior al mínimo de L 1,999, <strong>paga L 199 de logística</strong> pero no se cuenta como pedido válido dentro de las métricas de campaña. Se recomienda siempre alcanzar el mínimo.` },
+{t:'catalogo_actualizacion', k:['cuando se actualiza catalogo','nuevo catalogo','catalogo nuevo cuando','proximo catalogo','cambia catalogo','cambio de catalogo','cada cuando cambia','actualizan catalogo','nuevo catalogo cuando sale','sale nuevo catalogo','catalogo siguiente','siguiente campana catalogo','nuevo catalogo campana'],
+r:`El catálogo se actualiza con cada nueva <strong>campaña</strong>, aproximadamente cada <strong>25 días</strong>. Los cambios de productos, precios y ofertas se comunican al inicio de cada campaña.`},
 
-  { k:['que es nombramiento','nombramiento que es','alta persona','registro nuevo miembro'],
-    r:`Un <strong>nombramiento</strong> es el proceso oficial de incorporación de una persona a la estructura de ÈNIGME. Implica el registro en el sistema, asignación de rol y zona, y el pago correspondiente.` },
-
-  { k:['pago nombramiento','cuanto nombramiento','320','costo nombramiento','precio entrada'],
-    r:`El nombramiento tiene un costo de <strong>L 320</strong> cuando el equipo supera <strong>5 personas</strong>.<br><br>
-Este pago formaliza el ingreso a la estructura y genera un código único de identificación en el sistema.` },
-
-  { k:['codigo unico','codigo identificacion','codigo gerente','numero miembro'],
-    r:`Sí, cada miembro nombrado en ÈNIGME recibe un <strong>código único de identificación</strong> que no se repite. Este código vincula a la persona con su zona, gerente y coordinador dentro del sistema.` },
-
-  { k:['se genera comprobante','comprobante nombramiento','recibo nombramiento','documento ingreso'],
-    r:`Sí, el sistema genera un <strong>comprobante digital</strong> al completar el nombramiento. Puede consultarse en línea, exportarse en PDF e imprimirse si se necesita.` },
-
-  { k:['se puede anular nombramiento','cancelar nombramiento','editar nombramiento'],
-    r:`Los nombramientos pueden <strong>anularse</strong> a través del sistema. La <strong>edición es limitada</strong> una vez registrados, por lo que se recomienda verificar bien los datos antes de confirmar.` },
-
-  { k:['hay trazabilidad','historial pedido','rastro pedido','seguimiento pedido'],
-    r:`Sí, el sistema mantiene <strong>trazabilidad completa</strong> de cada pedido: fecha, hora, responsable, monto, zona y estado. Todo queda registrado y es auditable.` },
-
-  { k:['hay control fraude','fraude sistema','seguridad pedidos','duplicados'],
-    r:`Sí, el sistema incluye <strong>controles antifraude</strong>: validación automática de importes, control de duplicados, coherencia de datos y códigos únicos. Todo está diseñado para minimizar errores e irregularidades.` },
-
-  // ══════════════════════════════════════════
-  // 6. PAGOS Y CONTROL FINANCIERO
-  // ══════════════════════════════════════════
-  { k:['se acepta efectivo','pagar efectivo','cash','dinero mano','pago en mano'],
-    r:`⚠️ <strong>No</strong>. ÈNIGME <strong>no acepta pagos en efectivo</strong> bajo ninguna circunstancia.<br><br>
-Los únicos métodos aceptados son <strong>tarjeta de crédito</strong> y <strong>transferencia bancaria</strong>. Esta norma es irrenunciable y su incumplimiento es una falta grave.` },
-
-  { k:['metodos de pago','como pagar','formas pago','tarjeta transferencia'],
-    r:`Los métodos de pago aceptados en ÈNIGME son:<br><ul>
+// ─────────────────────────────────────────────
+// FORMAS DE PAGO Y EFECTIVO
+// ─────────────────────────────────────────────
+{t:'efectivo_prohibido', k:['se acepta efectivo','pagar efectivo','pago en efectivo','cash','dinero en mano','dinero efectivo','billete','cobrar efectivo','recibir efectivo','nadie toca efectivo','efectivo empresa','manejo efectivo','se puede pagar cash','billete enigme','pago fisico','pago manual','dinero fisico','dinero empresa','tocar dinero'],
+r:`⚠️ <strong>NORMA ABSOLUTA DE ÈNIGME:</strong><br><br>
+<strong>Nadie puede manejar dinero en efectivo de la compañía</strong>, sin excepción alguna.<br><br>
+Los únicos métodos aceptados son:<br><ul>
 <li><strong>Tarjeta de crédito</strong></li>
 <li><strong>Transferencia bancaria</strong></li>
 </ul>
-Nadie del equipo puede manejar efectivo de la compañía.` },
+El incumplimiento de esta norma es una falta grave.`},
 
-  { k:['como se paga pedido','60 40','60%','40%','pago inicial','pago restante'],
-    r:`El esquema de pago de pedidos es:<br><ul>
-<li><strong>60%</strong> se paga al momento de <strong>enviar el pedido</strong></li>
-<li><strong>40%</strong> restante se paga <strong>a la semana de recibir el pedido</strong></li>
-</ul>` },
+{t:'metodos_pago', k:['metodos pago','como pagar','formas de pago','maneras de pagar','que metodos hay','que formas de pago','tarjeta','transferencia','pago con tarjeta','pago transferencia','pago bancario','se acepta tarjeta','se puede tarjeta','deposito bancario','formas pago enigme','pago con que','con que pago','aceptan tarjeta','pago online'],
+r:`Los métodos de pago aceptados en ÈNIGME son:<br><ul>
+<li><strong>Tarjeta de crédito</strong></li>
+<li><strong>Transferencia bancaria</strong></li>
+</ul>
+<em>No se acepta efectivo bajo ninguna circunstancia.</em>`},
 
-  { k:['hay control bancario','conciliacion bancaria','verificacion pago','validacion pago'],
-    r:`Sí, el sistema incluye <strong>control bancario y conciliación automática</strong>. Cada pago se registra, se vincula al pedido correspondiente y se valida. Hay trazabilidad completa de ingresos y egresos.` },
+// ─────────────────────────────────────────────
+// NOMBRAMIENTO
+// ─────────────────────────────────────────────
+{t:'nombramiento', k:['nombramiento','que es nombramiento','cuanto nombramiento','costo nombramiento','precio nombramiento','pago nombramiento','320 lempiras','320','l 320','cuanto cuesta nombrarse','cuanto cuesta entrar','cuanto se paga para ser gerente','pago de entrada','inscripcion gerente','registro gerente','alta gerente','incorporacion gerente','nombramiento gerente zona','nombramiento cuanto','cuanto vale nombramiento','pago por nombrarse'],
+r:`El <strong>nombramiento de Gerente de Zona</strong> tiene un costo de <strong>L 320</strong> cuando el equipo supera 5 personas.<br><br>
+Este pago formaliza el ingreso a la estructura y genera un <strong>código único de identificación</strong> en el sistema.`},
 
-  { k:['hay seguridad financiera','seguridad sistema pagos','proteccion datos','datos seguros'],
-    r:`Sí, el sistema tiene <strong>alta seguridad financiera</strong>: control de acceso por roles, RLS (Row Level Security), encriptación y registros de auditoría. Los datos financieros están protegidos en todo momento.` },
+{t:'codigo_unico', k:['codigo unico','codigo identificacion','numero de miembro','codigo enigme','codigo personal','mi codigo','tienen codigo','codigo de gerente','codigo de asesora','codigo de entrada','que es el codigo','para que el codigo','codigo registro'],
+r:`Sí, cada miembro nombrado en ÈNIGME recibe un <strong>código único de identificación</strong> que no se repite. Este código vincula a la persona con su zona, gerente y coordinador dentro del sistema.`},
 
-  { k:['se integra stripe','stripe','pasarela pago','pago online'],
-    r:`Sí, el sistema está preparado para integrarse con <strong>Stripe</strong> como pasarela de pago, permitiendo pagos con tarjeta de forma segura y automatizada.` },
+// ─────────────────────────────────────────────
+// CAMPAÑAS Y METAS
+// ─────────────────────────────────────────────
+{t:'campana', k:['campana','que es campana','campana enigme','ciclo ventas','duracion campana','cuanto dura campana','cada cuanto campana','campana de ventas','periodo campana','como funciona campana','campana como funciona','campanas enigme','cuantas campanas','nueva campana','cuando empieza campana','cuando termina campana','campana cuanto dura'],
+r:`Una <strong>campaña</strong> en ÈNIGME es el ciclo de ventas de aproximadamente <strong>25 días</strong>.<br><br>
+Cada campaña incluye:<br><ul>
+<li>Catálogo vigente actualizado</li>
+<li>Metas de ventas asignadas por zona y división</li>
+<li>Período de premiación (incentivos en la <strong>campaña siguiente</strong>)</li>
+</ul>`},
 
-  { k:['hay control contable','contabilidad','ingresos egresos','control financiero'],
-    r:`Sí, ÈNIGME cuenta con <strong>control financiero completo</strong>: registro de ingresos, egresos, márgenes, comisiones y rentabilidad. Todo exportable para revisión contable.` },
+{t:'meta_ventas', k:['meta ventas','cuanto hay que vender','objetivo ventas','meta de zona','quién fija meta','quien fija meta','metas enigme','metas de campana','cuanto debo vender','meta mensual','meta por campana','como se fija meta','quien pone las metas','metas por zona','cumplir meta','alcanzar meta','meta obligatoria'],
+r:`Las <strong>metas de ventas</strong> son establecidas por la <strong>Gerencia Divisional</strong> en coordinación con Dirección.<br><br>
+El Gerente de Zona es responsable de que su zona las cumpla cada campaña.`},
 
-  // ══════════════════════════════════════════
-  // 7. TECNOLOGÍA Y SISTEMA
-  // ══════════════════════════════════════════
-  { k:['que tecnologia usa','supabase','base de datos','sistema tecnologico'],
-    r:`ÈNIGME usa <strong>Supabase</strong> como base de datos principal, con backend y frontend propios. El sistema es modular, escalable y preparado para alto volumen de operaciones.` },
+{t:'limite_nuevas', k:['limite primeras campanas','3599','6 campanas','primera vez vendiendo','nueva asesora limite','restriccion nueva asesora','tope venta nueva','cuanto puede vender nueva','limite asesora nueva','restriccion primeras campanas','no superar 3599','maximo nueva','tope nueva','primer campana cuanto','inicio asesora limite'],
+r:`Las <strong>Asesoras Estrella nuevas</strong> tienen un tope de ventas durante sus primeras <strong>6 campañas</strong>:<br><br>
+No pueden superar <strong>L 3,599</strong> de ventas por campaña en ese período.<br><br>
+A partir de la <strong>campaña 7</strong>, este límite desaparece completamente.`},
 
-  { k:['hay ecommerce','tienda online','web venta','venta digital'],
-    r:`Sí, ÈNIGME tiene <strong>ecommerce propio</strong> conectado con la web corporativa. Ambos sistemas están integrados para gestionar ventas, pedidos y pagos de forma unificada.` },
+{t:'semana_administrativa', k:['semana administrativa','subir ventas sistema','como subo ventas','reporte semanal ventas','cuando subo ventas','subir reporte','semana de reporte','subir datos ventas','reporte de zona','subir ventas del equipo','reporte ventas gerente','cuándo reporto','como reporto ventas','donde subo ventas','sistema ventas','subir info ventas'],
+r:`El <strong>Gerente de Zona</strong> sube las ventas totales de su equipo <strong>semanalmente</strong> durante la semana administrativa, desde su apartado en el <strong>Portal Corporativo de ÈNIGME</strong>.<br><br>
+Es obligatorio mantener este registro actualizado para el correcto cálculo de comisiones.`},
 
-  { k:['hay api','integracion','conectar sistemas','api enigme'],
-    r:`Sí, el sistema de ÈNIGME cuenta con <strong>API propia</strong> que permite integraciones con plataformas de pago, herramientas de marketing, aplicaciones externas y sistemas de analítica.` },
+// ─────────────────────────────────────────────
+// PREMIOS E INCENTIVOS
+// ─────────────────────────────────────────────
+{t:'premios', k:['premios','incentivos','cuando recibo premio','cuando dan premios','campana siguiente premio','premio campana posterior','cuando entrega premio','cuando cobro premio','premio siguiente','incentivos enigme','como gano premio','desde cuanto premio','que premios hay','premio cuanto','premio desde','2499','l2499','desde 2499','a partir 2499','cuanto para ganar premio'],
+r:`Los <strong>premios e incentivos</strong> en ÈNIGME:<br><ul>
+<li>Se ganan a partir de <strong>L 2,499</strong> de ventas</li>
+<li>Siempre se entregan en la <strong>campaña inmediatamente siguiente</strong></li>
+<li>Las Asesoras VIP reciben <strong>premios sorpresa especiales</strong> adicionales</li>
+</ul>`},
 
-  { k:['hay automatizacion','automatico','proceso automatico','sin intervencion manual'],
-    r:`Sí, el sistema de ÈNIGME está diseñado con <strong>automatización</strong> en comisiones, validaciones, comprobantes y reportes. El objetivo es minimizar la intervención manual y los errores humanos.` },
+{t:'tipos_premios', k:['que tipo de premios','que premios da','premios enigme que son','tipos de incentivos','que se gana','premio sorpresa','que hay de premios','premios vip','premios especiales','reconocimientos','hay bonos','bono enigme','cuales son los premios','que incluye premio'],
+r:`ÈNIGME tiene un programa de reconocimientos que incluye:<br><ul>
+<li><strong>Premios por metas de ventas</strong> (entregados campaña siguiente)</li>
+<li><strong>Premios sorpresa especiales</strong> para Asesoras VIP</li>
+<li>Bonos por desempeño destacado</li>
+<li>Reconocimiento público dentro del equipo</li>
+<li>Posibilidad de <strong>ascenso</strong> para coordinadores estrella</li>
+</ul>`},
 
-  { k:['hay kpi','indicadores','metricas sistema','analitica'],
-    r:`Sí, el sistema incluye <strong>KPIs y analítica avanzada</strong> con datos en tiempo real: ventas por zona, por campaña, por persona, comisiones generadas y cumplimiento de metas.` },
+// ─────────────────────────────────────────────
+// ASCENSO Y CRECIMIENTO INTERNO
+// ─────────────────────────────────────────────
+{t:'ascenso', k:['puedo ascender','hay ascensos','subir de cargo','crecer dentro','como subo de nivel','como me asciendo','ascenso interno','crecimiento interno','como progresar','como avanzar','career','carrera enigme','como subir','puedo crecer','se puede crecer','subir de rango','llegar a gerente','como ser gerente','ser gerente de zona','ascender coordinador','ascenso coordinador'],
+r:`Sí, ÈNIGME tiene un sistema claro de ascenso:<br><ul>
+<li><strong>Asesora Estrella</strong> con alto volumen → <strong>Asesora VIP</strong></li>
+<li><strong>Coordinadora Estrella</strong> destacada → <strong>Gerente de Zona</strong> (zona propia)</li>
+<li><strong>Gerente de Zona</strong> → posición superior con crecimiento de división</li>
+</ul>
+El desempeño, liderazgo y ventas son la clave para ascender.`},
 
-  { k:['hay bi','business intelligence','inteligencia negocio','analisis datos'],
-    r:`Sí, ÈNIGME incorpora capacidades de <strong>Business Intelligence</strong> para analizar datos de ventas, proyectar metas y tomar decisiones estratégicas basadas en información real.` },
+{t:'zona_nueva', k:['crear zona nueva','zona nueva','nueva zona','como se crea zona','creacion de zona','zona propia','tener zona propia','abrir zona','expansion zona','nueva zona como','cuando se crea zona','crear mi propia zona','zona nueva como funciona'],
+r:`La creación de una <strong>nueva zona</strong> ocurre cuando un <strong>Coordinador Estrella</strong> es promovido a Gerente de Zona.<br><br>
+Este proceso lo gestiona el <strong>Gerente Divisional</strong> en coordinación con Gerencia General.`},
 
-  { k:['se puede usar ia','inteligencia artificial','ia sistema','automatizacion inteligente'],
-    r:`Sí, el sistema está preparado para incorporar <strong>inteligencia artificial</strong> en la automatización de procesos, predicción de ventas y personalización de la experiencia del equipo.` },
+// ─────────────────────────────────────────────
+// DEVOLUCIONES
+// ─────────────────────────────────────────────
+{t:'devoluciones', k:['devolucion','devoluciones','devolver producto','se puede devolver','como devolver','politica devolucion','garantia producto','cambio producto','producto malo','producto defectuoso','quiero devolver','devolver compra','devolucion enigme','acepta devoluciones','politica cambios','cambio o devolucion','plazo devolucion','condiciones devolucion','cuanto tiempo para devolver','dias para devolver'],
+r:`Sí, ÈNIGME <strong>acepta devoluciones</strong>.<br><br>
+Para conocer todos los términos, condiciones y plazos, consulta la <strong>Política de Garantías y Devoluciones</strong> oficial en:<br><br>
+🌐 <strong>enigmeofficial.com</strong><br><br>
+Si recibiste un producto defectuoso, repórtalo de inmediato a tu <strong>Gerente de Zona</strong>.`},
 
-  { k:['hay backups','copia seguridad','perder datos','proteccion datos'],
-    r:`Sí, el sistema cuenta con <strong>backups automáticos</strong> y mecanismos de recuperación de datos. La información de la empresa está protegida ante cualquier eventualidad técnica.` },
-
-  { k:['hay logs','registro actividad','auditoria sistema','quien hizo que'],
-    r:`Sí, el sistema mantiene <strong>logs completos de actividad</strong>: quién accedió, qué operaciones realizó y cuándo. Esto garantiza la auditoría total de todas las acciones dentro del sistema.` },
-
-  // ══════════════════════════════════════════
-  // 8. CAMPAÑAS, METAS Y CRECIMIENTO
-  // ══════════════════════════════════════════
-  { k:['que es campana','campana enigme','ciclo ventas','duracion campana'],
-    r:`Una <strong>campaña</strong> en ÈNIGME es el ciclo de ventas de aproximadamente <strong>25 días</strong>. Cada campaña tiene catálogo vigente, metas asignadas y un período de reconocimientos cuya entrega se hace en la campaña siguiente.` },
-
-  { k:['limite primeras campanas','6 campanas','3599','nueva asesora limite','restriccion nueva'],
-    r:`Las <strong>Asesoras Estrella nuevas</strong> tienen un tope de <strong>L 3,599</strong> de ventas por campaña durante sus primeras <strong>6 campañas</strong>. A partir de la campaña 7, pueden vender sin restricción.` },
-
-  { k:['semana administrativa','subir ventas','reporte semanal','cuando subo ventas'],
-    r:`El <strong>Gerente de Zona</strong> sube las ventas totales de su equipo <strong>semanalmente</strong> durante la semana administrativa, desde su apartado en el Portal Corporativo de ÈNIGME.` },
-
-  { k:['premios cuando','cuando recibo premio','campana siguiente','incentivos cuando'],
-    r:`Los premios e incentivos siempre se entregan en la <strong>campaña inmediatamente siguiente</strong> a la que fueron ganados. Las Asesoras VIP reciben adicionalmente premios sorpresa exclusivos.` },
-
-  { k:['meta de zona','quien fija meta','objetivo zona','cuanto hay que vender'],
-    r:`Las <strong>metas de ventas</strong> son establecidas por la <strong>Gerencia Divisional</strong> en coordinación con Dirección. El Gerente de Zona es responsable de alcanzarlas con su equipo.` },
-
-  { k:['expansion futura','otros paises','roadmap','plan crecimiento','vision futuro'],
-    r:`ÈNIGME tiene un <strong>roadmap de expansión</strong> que contempla crecer por <strong>Centroamérica y más mercados internacionales</strong>. La estructura tecnológica y operativa ya está preparada para soportar ese crecimiento.` },
-
-  { k:['busca inversion','inversores','financiacion','capital externo'],
-    r:`La posibilidad de buscar inversión externa existe dentro de la visión de ÈNIGME. Por ahora, el modelo está siendo consolidado para tener una base sólida antes de escalar con inversión.` },
-
-  // ══════════════════════════════════════════
-  // 9. CATÁLOGO, ENVÍO Y DEVOLUCIONES
-  // ══════════════════════════════════════════
-  { k:['catalogo virtual','catalogo fisico','precio catalogo','99 lempiras','catalogo digital'],
-    r:`ÈNIGME trabaja principalmente con <strong>catálogo virtual</strong>, alineado con su compromiso ambiental como marca premium.<br><br>
-El catálogo físico está disponible con un costo de <strong>L 99</strong>.` },
-
-  { k:['costo envio','precio envio','envio cuanto','199 envio','flete'],
-    r:`El costo de envío es de <strong>L 199</strong> por pedido. Aplica a partir del pedido mínimo de <strong>L 1,999</strong>.` },
-
-  { k:['devolucion','devolver','cambio producto','producto defectuoso','garantia'],
-    r:`Sí, ÈNIGME <strong>acepta devoluciones</strong>. Para todos los términos y condiciones detallados, consulta la Política de Garantías y Devoluciones oficial en <strong>enigmeofficial.com</strong>.` },
-
-  { k:['impuesto','15%','descuento impuesto','isv','tributacion'],
-    r:`Del pedido total se descuenta el <strong>15% de impuestos</strong>. Todas las comisiones se calculan sobre el <strong>neto</strong> resultante.<br><br>
-<em>Ejemplo:</em> Pedido L 2,000 → Impuesto L 300 → Neto L 1,700 → Comisión asesora (18%) = <strong>L 306</strong>` },
-
-  // ══════════════════════════════════════════
-  // 10. CONTRASEÑAS Y ACCESO
-  // ══════════════════════════════════════════
-  { k:['contrasena','olvide contrasena','no puedo entrar','recuperar acceso','perdí contraseña'],
-    r:`Para recuperar tu contraseña sigue la <strong>cadena jerárquica</strong>:<br><ul>
+// ─────────────────────────────────────────────
+// CONTRASEÑAS Y SISTEMA
+// ─────────────────────────────────────────────
+{t:'contrasena', k:['contrasena','contrasenas','olvide contrasena','perdi contrasena','no recuerdo contrasena','recuperar contrasena','cambiar contrasena','contrasena perdida','no puedo entrar','no accedo','problema acceso','como recupero acceso','perdi acceso','me olvide','olvidaste contrasena','no me acuerdo','acceso bloqueado','bloqueo sistema','no entro al sistema','error contrasena','contrasena incorrecta','reset contrasena','reiniciar contrasena'],
+r:`Para recuperar tu contraseña sigue la <strong>cadena jerárquica</strong>:<br><ul>
 <li><strong>Gerente de Zona</strong> → Contacta a su <strong>Gerente Divisional</strong></li>
 <li><strong>Gerente Divisional</strong> → Contacta a <strong>Gerencia General</strong></li>
 </ul>
-No se puede saltar la jerarquía para recuperar contraseñas.` },
+⚠️ No se puede saltar la jerarquía para recuperar contraseñas.`},
 
-  { k:['como registro','registrar nuevo','añadir miembro','nuevo gerente sistema'],
-    r:`El registro depende del rol:<br><ul>
+{t:'registro_sistema', k:['como registro nuevo','registrar nuevo miembro','añadir persona sistema','nuevo gerente sistema','registrar gerente','dar de alta','alta sistema','como doy de alta','como ingreso nuevo','ingreso al sistema','nuevo acceso','crear usuario','usuario nuevo','como creo usuario'],
+r:`El registro depende del rol:<br><ul>
 <li><strong>Gerentes Divisionales</strong>: los registra <strong>Gerencia General</strong></li>
 <li><strong>Gerentes de Zona</strong>: los registra su <strong>Gerente Divisional</strong></li>
 <li><strong>Coordinadores y asesoras</strong>: los registra el <strong>Gerente de Zona</strong></li>
-</ul>` },
+</ul>`},
 
-  // ══════════════════════════════════════════
-  // 11. NORMAS CORPORATIVAS
-  // ══════════════════════════════════════════
-  { k:['nadie toca dinero','efectivo prohibido','manejo fondos','dinero compania'],
-    r:`⚠️ <strong>Norma absoluta de ÈNIGME</strong>: ninguna persona del equipo, independientemente de su rango, puede manejar <strong>dinero en efectivo de la compañía</strong>. Los pagos son únicamente por tarjeta o transferencia.` },
+// ─────────────────────────────────────────────
+// NORMAS CORPORATIVAS
+// ─────────────────────────────────────────────
+{t:'precios_fijos', k:['precio fijo','precio del catalogo','puedo cambiar precio','descuento propio','hacer descuento','precio diferente','modificar precio','precio personalizado','vender mas barato','vender mas caro','precio asesora','cambio de precio','se puede rebajar','bajar precio','subir precio','cobrar diferente','precio oficial'],
+r:`Los precios del catálogo de ÈNIGME son <strong>fijos y no modificables</strong>.<br><br>
+No está permitido hacer descuentos propios ni vender a un precio diferente al oficial. El precio del catálogo es el precio de venta, sin excepción.`},
 
-  { k:['precio catalogo fijo','descuento propio','modificar precio','precio diferente'],
-    r:`Los precios del catálogo de ÈNIGME son <strong>fijos y no modificables</strong>. No está permitido hacer descuentos propios ni vender a un precio diferente al establecido oficialmente.` },
+{t:'redes_sociales', k:['redes sociales','instagram','facebook','tiktok','whatsapp publicidad','publicidad enigme','promocionar enigme','compartir catalogo','redes personales','marketing personal','puedo publicar','puedo compartir','uso de redes','publicar enigme','promover en redes','vender por redes','usar logo','usar nombre enigme'],
+r:`Las asesoras y gerentes <strong>pueden usar el nombre de ÈNIGME</strong> en sus redes para promocionar el catálogo.<br><br>
+Es importante mantener siempre el <strong>tono elegante y premium</strong> que representa la marca ÈNIGME en todas las comunicaciones.`},
 
-  { k:['redes sociales','instagram','facebook','publicidad','marketing personal'],
-    r:`Las asesoras y gerentes pueden usar el nombre de <strong>ÈNIGME</strong> en sus redes para promocionar el catálogo, siempre manteniendo el <strong>tono elegante y premium</strong> que representa la marca.` },
-
-  { k:['valores enigme','mision vision','principios','cultura empresa'],
-    r:`Los valores de ÈNIGME son:<br><ul>
+{t:'valores', k:['valores enigme','mision enigme','vision enigme','principios empresa','cultura empresa','filosofia empresa','que representa','identidad marca','branding','que defiende enigme','compromiso empresa','etica empresa','valores corporativos','que promueve','porque premium','marca premium','lujo accesible'],
+r:`Los valores corporativos de ÈNIGME:<br><ul>
 <li><strong>Lujo accesible</strong>: calidad premium al alcance del consumidor aspiracional</li>
 <li><strong>Sostenibilidad</strong>: catálogo virtual para reducir impacto ambiental</li>
-<li><strong>Integridad</strong>: transparencia financiera y cero efectivo</li>
+<li><strong>Integridad</strong>: transparencia financiera total, cero efectivo</li>
 <li><strong>Crecimiento</strong>: oportunidades reales de ascenso y emprendimiento</li>
-<li><strong>Comunidad</strong>: un equipo que crece junto</li>
-</ul>` },
+<li><strong>Comunidad</strong>: un equipo que crece unido</li>
+</ul>`},
 
-  // ══════════════════════════════════════════
-  // 12. DESPEDIDA Y CIERRE
-  // ══════════════════════════════════════════
-  { k:['gracias','muchas gracias','ok gracias','perfecto','excelente gracias','genial gracias','listo gracias'],
-    r:`¡Con gusto! Estoy aquí siempre que lo necesites. <em>¡Mucho éxito en tu campaña!</em> ✨` },
+// ─────────────────────────────────────────────
+// CONTACTO
+// ─────────────────────────────────────────────
+{t:'contacto', k:['como contactar enigme','correo enigme','email enigme','email de contacto','contacto empresa','comunicarme con enigme','donde escribir','a quien escribo','soporte enigme','ayuda enigme','info enigme','contacto official','pagina web','sitio web','enigmeofficial','enigmeofficial.com','numero enigme','telefono enigme','contacto whatsapp'],
+r:`Puedes contactar a ÈNIGME a través de:<br><ul>
+<li>📧 <strong>info@enigmeofficial.com</strong> — consultas formales</li>
+<li>🌐 <strong>enigmeofficial.com</strong> — web oficial</li>
+<li>Tu <strong>superior jerárquico</strong> — consultas operativas internas</li>
+</ul>`},
 
-  { k:['hasta luego','chao','bye','me voy','adios','nos vemos'],
-    r:`¡Hasta pronto! Recuerda que puedes consultarme cuando necesites. <em>¡Adelante con ÈNIGME!</em>` },
+// ─────────────────────────────────────────────
+// INCORPORARSE AL EQUIPO
+// ─────────────────────────────────────────────
+{t:'unirse', k:['como me uno','como entrar','quiero ser asesora','unirme al equipo','como empezar','trabajo enigme','emprender','quiero vender','como vendo','quiero entrar','como ingreso','como me registro','quiero ser parte','unirme enigme','inscribirse','registrarse como asesora','como ser asesora','como participar','como formo parte','como ser coordinador','como ser gerente'],
+r:`Para unirte al equipo de ÈNIGME:<br><ul>
+<li><strong>Asesora Estrella</strong>: contacta a la Coordinadora o Gerente de Zona de tu área</li>
+<li><strong>Coordinadora</strong>: sé reclutada y registrada por el Gerente de Zona</li>
+<li><strong>Gerente de Zona</strong>: requiere pago de nombramiento (<strong>L 320</strong>) y mínimo <strong>8 coordinadores</strong></li>
+</ul>`},
 
-  // ══════════════════════════════════════════
-  // 13. PREGUNTAS ADICIONALES FRECUENTES
-  // ══════════════════════════════════════════
-  { k:['como gano mas','maximizar ganancias','ganar mas dinero','aumentar comision','mejorar ingresos'],
-    r:`Para maximizar tus ganancias en ÈNIGME:<br><ul>
-<li>Aumenta el volumen de ventas de tu equipo → más comisión del <strong>2% o 3%</strong></li>
-<li>Mantén a tus asesoras activas y motivadas cada campaña</li>
-<li>Recluta nuevos coordinadores y amplía tu zona</li>
-<li>Apunta a que tus asesoras superen <strong>L 2,499</strong> para activar premios</li>
-</ul>
-Cuanto más grande y activo sea tu equipo, mayores son tus comisiones.` },
+{t:'horario_atencion', k:['horario atencion','cuando atiende','horas disponible','cuando esta abril','a que hora','disponible cuando','horario soporte','hasta que hora','desde que hora','atencion 24 horas','siempre disponible','atienden domingos','atienden fines de semana'],
+r:`Soy <strong>Abril</strong> y estoy disponible las <strong>24 horas del día, los 7 días de la semana</strong> para consultas internas.<br><br>
+Para atención personalizada del equipo humano, escribe a <strong>info@enigmeofficial.com</strong>.`},
 
-  { k:['cuantas asesoras','minimo asesoras','equipo minimo','cuantas personas'],
-    r:`No hay un mínimo de asesoras por coordinador establecido oficialmente, pero se busca que cada coordinador tenga un equipo activo y productivo. Lo que sí es obligatorio es que el <strong>Gerente de Zona tenga mínimo 8 coordinadores</strong>.` },
+// ─────────────────────────────────────────────
+// EXPANSIÓN Y FUTURO
+// ─────────────────────────────────────────────
+{t:'expansion', k:['expansion','crecer paises','otros paises','expansion internacional','internacionalizacion','centroamerica','planes enigme','futuro enigme','donde va enigme','a donde crecen','cuando expanden','nueva expansion','mercados nuevos','vision global','plan de crecimiento','roadmap','objetivos futuros','proyeccion empresa'],
+r:`ÈNIGME tiene <strong>visión internacional</strong> con planes de expansión por <strong>Centroamérica y más mercados</strong>.<br><br>
+La estructura tecnológica, operativa y el modelo de campañas ya están preparados para soportar ese crecimiento de forma ordenada.`},
 
-  { k:['que es sector','sectores enigme','como funciona sector','sector zona'],
-    r:`Un <strong>sector</strong> es la unidad básica de organización dentro de una zona. Cada sector está liderado por un <strong>coordinador</strong> que gestiona a sus Asesoras Estrella. El Gerente de Zona crea y administra los sectores de su zona.` },
+// ─────────────────────────────────────────────
+// TECNOLOGÍA
+// ─────────────────────────────────────────────
+{t:'tecnologia', k:['tecnologia enigme','sistema enigme','base de datos','supabase','web corporativa','ecommerce','app enigme','plataforma','como funciona sistema','sistema digital','herramientas digitales','software enigme','portal enigme','portal corporativo','dashboards','informes sistema','kpi','metricas sistema','analítica','reportes automaticos'],
+r:`ÈNIGME usa tecnología moderna:<br><ul>
+<li><strong>Supabase</strong> como base de datos principal</li>
+<li><strong>Portal Corporativo</strong> con dashboards y KPIs</li>
+<li><strong>Ecommerce</strong> integrado con la web corporativa</li>
+<li><strong>API propia</strong> para integraciones externas</li>
+<li>Ventas y comisiones calculadas en <strong>tiempo real</strong></li>
+</ul>`},
 
-  { k:['cuando se actualiza catalogo','nuevo catalogo cuando','campana nueva catalogo','cambio catalogo'],
-    r:`El catálogo se actualiza con cada nueva <strong>campaña</strong>, aproximadamente cada <strong>25 días</strong>. Los cambios de productos, precios y ofertas se comunican oficialmente al inicio de cada campaña.` },
+// ─────────────────────────────────────────────
+// TEMAS VARIOS FRECUENTES
+// ─────────────────────────────────────────────
+{t:'sector', k:['que es sector','sectores enigme','sector como funciona','sector de zona','sector de ventas','crear sector','sector coordinador','organizacion sector','sector que es'],
+r:`Un <strong>sector</strong> es la unidad básica de organización dentro de una zona. Cada sector es liderado por un <strong>coordinador</strong> que gestiona a sus Asesoras Estrella. El Gerente de Zona crea y administra los sectores.`},
 
-  { k:['puedo vender online','venta por redes','instagram ventas','facebook ventas','venta digital personal'],
-    r:`Sí, las asesoras pueden promocionar el catálogo de ÈNIGME a través de sus <strong>redes sociales personales</strong>, siempre manteniendo el tono elegante y premium de la marca. El catálogo virtual facilita compartirlo digitalmente.` },
+{t:'coordinadores_minimo', k:['cuantos coordinadores','minimo coordinadores','8 coordinadores','numero coordinadores','coordinadores necesarios','cuantos necesito','requisito coordinadores','coordinadores obligatorios','minimo de coordinadores','tener 8 coordinadores'],
+r:`Cada <strong>Gerente de Zona</strong> debe contar con un mínimo de <strong>8 coordinadores activos</strong>.<br><br>
+Es responsabilidad del gerente crear sectores y mantener ese equipo activo para garantizar el crecimiento de la zona.`},
 
-  { k:['hay capacitacion','entrenamiento','formacion','curso enigme','se capacita'],
-    r:`Sí, ÈNIGME contempla capacitación y formación para el equipo. Los detalles sobre los programas de entrenamiento disponibles los gestiona tu <strong>Gerente de Zona o Divisional</strong> según tu nivel.` },
-
-  { k:['hay contrato','firma contrato','documento entrada','acuerdo legal'],
-    r:`El ingreso a ÈNIGME se formaliza mediante el proceso de nombramiento en el sistema. Para consultas sobre documentos legales o contractuales específicos, te recomiendo escribir a <strong>info@enigmeofficial.com</strong>.` },
-
-  { k:['hay seguro','seguro vida','seguro medico','beneficios','prestaciones'],
-    r:`Para información detallada sobre beneficios adicionales, seguros o prestaciones dentro de ÈNIGME, te recomiendo consultar directamente con <strong>Gerencia General</strong> o escribir a <strong>info@enigmeofficial.com</strong>.` },
-
-  { k:['horario atencion','cuando esta disponible','horas soporte','atienden cuando'],
-    r:`Soy <strong>Abril</strong> y estoy disponible las <strong>24 horas</strong> para consultas internas a través de este portal.<br><br>
-Para temas que requieran atención humana directa, escribe a <strong>info@enigmeofficial.com</strong> y el equipo de ÈNIGME te responderá en el menor tiempo posible.` },
-
-  { k:['queja','reclamacion','problema con gerente','conflicto','reportar problema','denuncia'],
-    r:`Para gestionar quejas, reclamaciones o conflictos internos, el proceso es:<br><ul>
+{t:'queja_problema', k:['queja','reclamacion','problema gerente','conflicto','reportar problema','denuncia interna','reporte problema','hay problema','tengo problema','problema con alguien','quiero reportar','conflicto zona','problema sistema','fallo sistema','error pago','error comision','discrepancia','inconformidad'],
+r:`Para gestionar quejas o conflictos:<br><ul>
 <li>Primero comunícalo con tu <strong>superior jerárquico inmediato</strong></li>
 <li>Si no se resuelve, escala al nivel superior</li>
-<li>Para casos graves, escribe directamente a <strong>info@enigmeofficial.com</strong></li>
-</ul>` },
+<li>Para casos graves o sin resolver, escribe a <strong>info@enigmeofficial.com</strong></li>
+</ul>`},
 
-  { k:['cuando se funda','año fundacion','historia empresa','cuando nace enigme'],
-    r:`ÈNIGME es una empresa en fase de <strong>lanzamiento y crecimiento activo</strong>, con operaciones iniciando en Honduras y desarrollada estratégicamente desde Madrid por su fundador <strong>Carlos Armas Martínez</strong>.` },
+{t:'capacitacion', k:['capacitacion','entrenamiento','formacion','curso enigme','hay capacitacion','se capacita','como aprendo','material de apoyo','guia ventas','como vender mejor','trucos ventas','consejos ventas','recursos formacion','apoyo asesoras'],
+r:`Sí, ÈNIGME contempla capacitación para el equipo. Los detalles sobre programas disponibles los gestiona tu <strong>Gerente de Zona o Divisional</strong>.<br><br>
+Para información específica sobre formación, escribe a <strong>info@enigmeofficial.com</strong>.`},
 
-  { k:['puedo ser coordinador','como ser coordinador','quiero ser coordinador','subir a coordinador'],
-    r:`Para convertirte en <strong>Coordinadora</strong>, debes ser reclutada y registrada por el <strong>Gerente de Zona</strong> de tu área. Demostrar liderazgo, buen desempeño en ventas y capacidad de reclutamiento es el camino natural para ese rol.` },
+// ─────────────────────────────────────────────
+// DESPEDIDA
+// ─────────────────────────────────────────────
+{t:'gracias', k:['gracias','muchas gracias','ok gracias','perfecto gracias','genial gracias','listo gracias','excelente','muy bien gracias','entendi gracias','ok ya entendi','ya vi gracias','chevere gracias','chido gracias','gracias abril'],
+r:`¡Con mucho gusto! Estoy aquí siempre que me necesites. <em>¡Mucho éxito en tu campaña!</em> ✨`},
 
-  { k:['puedo tener varias zonas','dos zonas','mas de una zona','gerente dos zonas'],
-    r:`Esa es una consulta que depende de la estructura y expansión de cada división. Te recomiendo consultarlo directamente con tu <strong>Gerente Divisional</strong> o escribir a <strong>info@enigmeofficial.com</strong> para una respuesta oficial.` },
-
-  { k:['hay penalizacion por ventas bajas','no vender consecuencias','que pasa si no vendo','zona sin ventas'],
-    r:`Si una zona no alcanza sus metas de ventas, el <strong>Gerente Divisional</strong> realizará el seguimiento correspondiente. Las consecuencias específicas dependen del desempeño acumulado y se gestionan a través de la jerarquía. Para más detalles, escribe a <strong>info@enigmeofficial.com</strong>.` },
-
-  { k:['pago coordinador','comision coordinador','cuanto gana coordinador','ingreso coordinador'],
-    r:`La estructura de compensación específica para coordinadores la gestiona el <strong>Gerente de Zona</strong> de cada área. Para información detallada sobre ingresos de coordinadores, consulta con tu gerente o escribe a <strong>info@enigmeofficial.com</strong>.` },
-
-  { k:['se puede pausar','dejar temporalmente','descanso activo','inactividad temporal'],
-    r:`Para consultar sobre la política de pausas o inactividad temporal dentro de la estructura, te recomiendo hablar directamente con tu <strong>superior jerárquico</strong> o escribir a <strong>info@enigmeofficial.com</strong> para recibir orientación oficial.` },
-
-  { k:['como contactar enigme','correo enigme','email contacto','comunicarme con enigme'],
-    r:`Puedes contactar a ÈNIGME a través de:<br><ul>
-<li>📧 <strong>info@enigmeofficial.com</strong> — para consultas formales</li>
-<li>🌐 <strong>enigmeofficial.com</strong> — web oficial</li>
-<li>Tu <strong>superior jerárquico</strong> — para consultas operativas internas</li>
-</ul>` },
-
-  { k:['informacion confidencial','datos privados','proteccion informacion','privacidad'],
-    r:`Toda la información interna de ÈNIGME es <strong>confidencial</strong>. El sistema de acceso por roles garantiza que cada miembro solo vea la información que le corresponde. No se debe compartir datos internos fuera de los canales oficiales.` },
+{t:'despedida', k:['hasta luego','chao','bye','adios','me voy','nos vemos','cuídate','hasta pronto','hasta manana','chau','hasta la proxima','ya me voy','me despido'],
+r:`¡Hasta pronto! Recuerda que puedes consultarme cuando quieras. <em>¡Adelante con ÈNIGME!</em>`},
 
 ];
 
-// ══════════════════════════════════════════════════════════
-//  DETECTOR DE TEXTO MAL ESCRITO O INCOMPRENSIBLE
-// ══════════════════════════════════════════════════════════
-function esTextoIncomprensible(text) {
+// ══════════════════════════════════════════════════════════════════
+//  TEMAS COMPLEJOS → EMAIL
+// ══════════════════════════════════════════════════════════════════
+const TEMAS_COMPLEJOS = ['demanda','judicial','abogado','contrato laboral','despido','liquidacion laboral','declaracion fiscal','sar','factura fiscal','fraude grave','robo','denuncia policia','inversion externa','accionista','auditoria externa','revision fiscal','nomina completa','sueldo fijo','seguro social','ihss','infop','cotizacion','sar honduras','impuesto renta','declaracion anual'];
+
+// ══════════════════════════════════════════════════════════════════
+//  MOTOR DE RESPUESTA
+// ══════════════════════════════════════════════════════════════════
+let intentosFallidos = 0;
+
+function esGibberish(text){
   const t = text.trim();
-
-  // Muy corto y sin sentido
-  if(t.length < 3) return true;
-
-  // Solo caracteres especiales o números
+  if(t.length < 2) return true;
   if(/^[\d\s\W]+$/.test(t)) return true;
-
-  // Muchas consonantes seguidas sin vocales (gibberish)
-  const sinVocales = t.replace(/[aeiouáéíóúüAEIOUÁÉÍÓÚÜ\s]/g,'');
-  if(sinVocales.length > t.replace(/\s/g,'').length * 0.75 && t.length > 5) return true;
-
-  // Caracteres repetidos excesivos (aaaaaa, jjjjj)
   if(/(.)\1{4,}/.test(t)) return true;
-
-  // Texto aleatorio sin palabras reconocibles (menos de 2 letras seguidas)
   const palabras = t.split(/\s+/);
-  const palabrasValidas = palabras.filter(p => p.length >= 2 && /[aeiouáéíóú]/i.test(p));
-  if(palabras.length > 0 && palabrasValidas.length === 0) return true;
-
+  const conVocal = palabras.filter(p => p.length >= 2 && /[aeiouáéíóú]/i.test(p));
+  if(palabras.length > 1 && conVocal.length === 0) return true;
+  const sin = t.replace(/[aeiouáéíóúüAEIOUÁÉÍÓÚÜ\s\d]/g,'');
+  if(sin.length > t.replace(/\s/g,'').length * 0.8 && t.length > 6) return true;
   return false;
 }
 
-// ══════════════════════════════════════════════════════════
-//  TEMAS COMPLEJOS → EMAIL
-// ══════════════════════════════════════════════════════════
-const temasComplejos = [
-  'demanda','judicial','legal','abogado','contrato laboral','despido','baja','liquidacion laboral',
-  'impuesto sobre renta','declaracion fiscal','sar honduras','contribuyente','factura fiscal',
-  'fraude grave','robo','denuncia policia','accion legal',
-  'inversion externa','socio','accionista','participacion empresa',
-  'auditoria externa','revision fiscal','inspeccion',
-  'salary','nomina completa','sueldo base fijo','empleado fijo',
-  'seguro social','ihss','infop','rap','cotizacion'
-];
-
-function esTemaComplejo(q) {
-  return temasComplejos.some(t => q.includes(normalize(t)));
+function esComplejo(q){
+  const qn = n(q);
+  return TEMAS_COMPLEJOS.some(t => qn.includes(n(t)));
 }
-
-// ══════════════════════════════════════════════════════════
-//  MOTOR DE BÚSQUEDA MEJORADO
-// ══════════════════════════════════════════════════════════
-function normalize(t){
-  return t.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[¿¡?!.,;:()"']/g,'')
-    .trim();
-}
-
-let intentosFallidos = 0;
 
 function getResponse(input){
   const raw = input.trim();
 
-  // 1. Detectar texto incomprensible o mal escrito
-  if(esTextoIncomprensible(raw)){
-    return `Disculpa, no logré entender tu consulta. ¿Podrías <strong>escribirla de nuevo</strong> con un poco más de detalle? Estoy aquí para ayudarte. 😊`;
+  if(esGibberish(raw)){
+    return `Disculpa, no logré entender bien tu consulta. ¿Podrías <strong>escribirla de nuevo</strong> con un poco más de detalle? Estoy aquí para ayudarte. 😊`;
   }
 
-  const q = normalize(raw);
-
-  // 2. Detectar temas complejos que requieren atención humana
-  if(esTemaComplejo(q)){
-    return `Esa es una consulta que requiere atención personalizada de nuestro equipo.<br><br>
+  if(esComplejo(raw)){
+    return `Esa consulta requiere atención personalizada de nuestro equipo.<br><br>
 Por favor escribe a <strong>info@enigmeofficial.com</strong> con los detalles de tu consulta y te responderemos a la brevedad. 📧`;
   }
 
-  // 3. Buscar en la base de conocimiento
+  // Calcular scores para cada entrada KB
   let best = null, bestScore = 0;
-
   for(const item of KB){
-    let score = 0;
-    for(const kw of item.k){
-      const n = normalize(kw);
-      if(q.includes(n)){
-        score += n.split(' ').length * 2;
-      } else {
-        const words = n.split(' ');
-        for(const w of words){
-          if(w.length > 3 && q.includes(w)) score += 1;
-        }
-      }
-    }
+    const score = scoreMatch(raw, item.k);
     if(score > bestScore){ bestScore = score; best = item; }
   }
 
-  if(best && bestScore >= 2){
+  if(best && bestScore >= 1.5){
     intentosFallidos = 0;
     return best.r;
   }
 
-  // 4. Texto muy corto sin contexto → pedir que reformule
-  if(raw.split(' ').length <= 2 && bestScore === 0){
-    return `Entiendo que tienes una consulta, pero necesito un poco más de contexto para ayudarte mejor. ¿Podrías <strong>explicarme un poco más</strong> lo que necesitas saber? 🙂`;
+  // Texto muy corto → pedir más info
+  if(raw.split(' ').length <= 2){
+    return `Entiendo que tienes una consulta. ¿Podrías darme un poco más de contexto para poder ayudarte mejor? 🙂`;
   }
 
-  // 5. Segundo intento fallido → enviar al email
   intentosFallidos++;
+
   if(intentosFallidos >= 2){
     intentosFallidos = 0;
-    return `No tengo esa información disponible en este portal.<br><br>
-Para recibir una respuesta precisa, escríbenos directamente a <strong>info@enigmeofficial.com</strong> con los detalles de tu consulta. Nuestro equipo te atenderá lo antes posible. 📧`;
+    return `Para esa consulta no tengo información registrada en este portal.<br><br>
+Te recomiendo escribir directamente a <strong>info@enigmeofficial.com</strong> y nuestro equipo te responderá a la brevedad. 📧`;
   }
 
-  // 6. Primer fallback — pedir que reformule
-  return `No encontré información exacta sobre eso. ¿Podrías <strong>reformular tu pregunta</strong> o darme más detalles? Si prefieres, también puedes escribir a <strong>info@enigmeofficial.com</strong> para atención directa.`;
+  return `No encontré información exacta sobre eso. ¿Podrías <strong>reformular tu pregunta</strong>? También puedes escribir a <strong>info@enigmeofficial.com</strong> para atención directa.`;
 }
 
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 //  INTERFAZ
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 let busy = false;
 
 function autoResize(el){
   el.style.height='auto';
   el.style.height=Math.min(el.scrollHeight,120)+'px';
 }
-
 function handleKey(e){
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviar();}
 }
-
 function addUser(text){
   const el=document.createElement('div');
   el.className='user-msg';
   el.innerHTML=`<div class="user-bubble">${text.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
-  msgs().appendChild(el); scroll();
+  msgs().appendChild(el);scroll();
 }
-
 function addTyping(){
   const el=document.createElement('div');
   el.className='typing-row';el.id='typing';
   el.innerHTML=`<div class="bot-avatar">A</div><div class="typing-dots"><span></span><span></span><span></span></div>`;
-  msgs().appendChild(el); scroll();
+  msgs().appendChild(el);scroll();
 }
-
 function removeTyping(){const t=document.getElementById('typing');if(t)t.remove();}
-
 function addBot(text){
   const el=document.createElement('div');
   el.className='bot-msg';
   el.innerHTML=`<div class="bot-avatar">A</div><div class="msg-bubble"><div class="msg-sender">Abril · ÈNIGME</div><div class="msg-content">${text}</div></div>`;
-  msgs().appendChild(el); scroll();
+  msgs().appendChild(el);scroll();
 }
-
 function msgs(){return document.getElementById('messages');}
 function scroll(){setTimeout(()=>{msgs().scrollTop=msgs().scrollHeight;},60);}
 
@@ -688,7 +664,7 @@ function enviar(){
     busy=false;
     document.getElementById('sendBtn').disabled=false;
     input.focus();
-  }, 300+Math.random()*500);
+  },300+Math.random()*400);
 }
 
 document.getElementById('chatInput').focus();
