@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ENIGME Corporate · Iniciar Sesion</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@300;400;500&family=Cormorant+Garamond:ital,wght@0,300;1,300;1,400&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--black:#060606;--white:#ffffff;--gold:#CBAA63;--gold-dim:#8b7040;--text:#e8e4dc;--muted:rgba(232,228,220,0.35);--border:rgba(232,228,220,0.08);--surface:rgba(255,255,255,0.03);--error:#e74c3c;--green:#27ae60;}
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    html,body{height:100%;overflow:hidden;}
+    body{background:var(--black);color:var(--text);font-family:'Jost',sans-serif;font-weight:300;display:flex;flex-direction:column;}
+    body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(203,170,99,0.05) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 100% 100%,rgba(203,170,99,0.03) 0%,transparent 50%);pointer-events:none;}
+
+    .topbar{position:relative;z-index:10;padding:28px 48px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);animation:fadeDown .8s ease both;flex-shrink:0;}
+    .topbar-brand{font-family:'Cinzel',serif;font-size:.95rem;letter-spacing:.4em;font-weight:400;color:var(--white);}
+    .topbar-sub{font-size:.5rem;letter-spacing:4px;text-transform:uppercase;color:var(--gold);font-weight:300;margin-top:2px;}
+    .topbar-back{display:flex;align-items:center;gap:10px;font-size:.55rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .3s;}
+    .topbar-back:hover{color:var(--gold);}
+    .back-arr{width:16px;height:1px;background:currentColor;position:relative;}
+    .back-arr::before{content:'';position:absolute;left:0;top:-3px;width:6px;height:6px;border-left:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(45deg);}
+
+    .main{flex:1;display:flex;align-items:center;justify-content:center;position:relative;z-index:10;padding:40px 20px;}
+
+    .login-card{width:100%;max-width:440px;animation:fadeUp 1s .2s ease both;}
+    .login-header{text-align:center;margin-bottom:48px;}
+    .login-icon{width:56px;height:56px;margin:0 auto 24px;border:1px solid rgba(203,170,99,0.25);display:flex;align-items:center;justify-content:center;transform:rotate(45deg);transition:border-color .5s;}
+    .login-icon-inner{transform:rotate(-45deg);font-size:1.2rem;color:var(--gold);}
+    .login-header h1{font-family:'Cinzel',serif;font-size:clamp(1.2rem,3vw,1.8rem);font-weight:300;letter-spacing:.15em;color:var(--white);margin-bottom:10px;}
+    .login-header p{font-family:'Cormorant Garamond',serif;font-size:.95rem;font-style:italic;color:var(--muted);letter-spacing:.05em;}
+
+    .form-group{margin-bottom:24px;}
+    .form-label{display:block;font-size:.52rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;font-weight:400;}
+    .form-input{width:100%;padding:14px 18px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;outline:none;transition:border-color .3s;}
+    .form-input:focus{border-color:rgba(203,170,99,0.4);}
+    .form-input::placeholder{color:rgba(232,228,220,0.15);}
+
+    .form-select{width:100%;padding:14px 18px;background:var(--black);border:1px solid var(--border);color:var(--text);font-family:'Jost',sans-serif;font-size:.85rem;font-weight:300;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23CBAA63' stroke-width='1' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;transition:border-color .3s;}
+    .form-select:focus{border-color:rgba(203,170,99,0.4);}
+    .form-select option{background:var(--black);color:var(--text);}
+
+    .divider-h{display:flex;align-items:center;gap:16px;margin:32px 0;}
+    .divider-h-line{flex:1;height:1px;background:var(--border);}
+    .divider-h-diamond{width:5px;height:5px;border:1px solid rgba(203,170,99,0.3);transform:rotate(45deg);}
+
+    .submit-btn{width:100%;padding:16px;background:transparent;border:1px solid rgba(203,170,99,0.3);color:var(--gold);font-family:'Jost',sans-serif;font-size:.65rem;letter-spacing:4px;text-transform:uppercase;font-weight:400;cursor:pointer;position:relative;overflow:hidden;transition:color .4s,border-color .4s;}
+    .submit-btn::before{content:'';position:absolute;inset:0;background:var(--gold);transform:scaleX(0);transform-origin:left;transition:transform .5s cubic-bezier(.7,0,.3,1);}
+    .submit-btn:hover::before{transform:scaleX(1);}
+    .submit-btn:hover{color:var(--black);border-color:var(--gold);}
+    .submit-btn span{position:relative;z-index:1;}
+
+    .error-msg{margin-top:16px;padding:12px 16px;border:1px solid rgba(231,76,60,0.3);background:rgba(231,76,60,0.05);font-size:.75rem;color:var(--error);text-align:center;display:none;animation:fadeUp .3s ease;}
+
+    .login-footer{text-align:center;margin-top:32px;font-size:.5rem;letter-spacing:2px;text-transform:uppercase;color:rgba(232,228,220,0.12);}
+
+    .footer-bar{position:relative;z-index:10;padding:20px 48px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;animation:fadeUp .8s .5s ease both;}
+    .footer-copy{font-size:.48rem;letter-spacing:3px;text-transform:uppercase;color:rgba(232,228,220,0.1);}
+    .footer-status{display:flex;align-items:center;gap:6px;font-size:.48rem;letter-spacing:2px;text-transform:uppercase;color:rgba(232,228,220,0.15);}
+    .status-dot{width:4px;height:4px;border-radius:50%;background:#27ae60;animation:blink 2s infinite;}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+    @keyframes fadeDown{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+
+    .hidden{display:none;}
+
+    @media(max-width:600px){.topbar{padding:20px 24px;}.main{padding:20px 16px;}.footer-bar{padding:16px 20px;}}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="topbar-brand">ENIGME</div>
+    <div class="topbar-sub">Acceso Corporativo</div>
+  </div>
+  <a href="enigme-corp-acceso.html" class="topbar-back">
+    <div class="back-arr"></div>
+    Volver
+  </a>
+</div>
+
+<div class="main">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-icon"><div class="login-icon-inner">&#9830;</div></div>
+      <h1>Iniciar Sesion</h1>
+      <p>Ingresa tus credenciales corporativas</p>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <form id="loginForm" onsubmit="return handleLogin(event)">
+      <div class="form-group">
+        <label class="form-label">Nivel de Acceso</label>
+        <select class="form-select" id="rolSelect">
+          <option value="" disabled selected>Selecciona tu rol</option>
+          <option value="general">Gerencia General</option>
+          <option value="divisional">Gerencia Divisional</option>
+          <option value="zona">Gerencia de Zona</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Usuario</label>
+        <input type="text" class="form-input" id="username" placeholder="nombre.apellido" autocomplete="off"/>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Contrasena</label>
+        <input type="password" class="form-input" id="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="off"/>
+      </div>
+
+      <div class="divider-h">
+        <div class="divider-h-line"></div>
+        <div class="divider-h-diamond"></div>
+        <div class="divider-h-line"></div>
+      </div>
+
+      <button type="submit" class="submit-btn"><span>Acceder al Sistema</span></button>
+
+      <div class="error-msg" id="errorMsg">Credenciales incorrectas. Verifica tu usuario y contrasena.</div>
+    </form>
+
+    <div class="login-footer">Acceso exclusivo para equipo directivo autorizado</div>
+  </div>
+</div>
+
+<div class="footer-bar">
+  <div class="footer-copy">&copy; 2026 ENIGME Honduras &middot; Portal Corporativo</div>
+  <div class="footer-status"><div class="status-dot"></div>Sistema operativo</div>
+</div>
+
+<script>
+  // Initialize localStorage arrays if they don't exist
+  function initializeStorage(){
+    if(!localStorage.getItem('enigme_divisionales')){
+      localStorage.setItem('enigme_divisionales', JSON.stringify([]));
+    }
+    if(!localStorage.getItem('enigme_gerentes')){
+      localStorage.setItem('enigme_gerentes', JSON.stringify([]));
+    }
+  }
+
+  // Hardcoded Gerencia General credentials
+  const GERENCIA_GENERAL = {
+    usuario: 'carlos.armas.300898',
+    contrasena: 'Gusiteamo.1998.2022',
+    nombre: 'Carlos Armas',
+    cargo: 'Director General',
+    codigo: 'carlos.armas.300898'
+  };
+
+  function handleLogin(e){
+    e.preventDefault();
+    const rol = document.getElementById('rolSelect').value;
+    const usuario = document.getElementById('username').value.trim().toLowerCase();
+    const contrasena = document.getElementById('password').value;
+    const errEl = document.getElementById('errorMsg');
+
+    // Reset error message
+    errEl.style.display = 'none';
+
+    // Validation
+    if(!rol){
+      errEl.textContent = 'Selecciona tu nivel de acceso.';
+      errEl.style.display = 'block';
+      return false;
+    }
+    if(!usuario || !contrasena){
+      errEl.textContent = 'Ingresa tu usuario y contrasena.';
+      errEl.style.display = 'block';
+      return false;
+    }
+
+    let sessionData = null;
+
+    // Handle Gerencia General
+    if(rol === 'general'){
+      if(usuario === GERENCIA_GENERAL.usuario.toLowerCase() && contrasena === GERENCIA_GENERAL.contrasena){
+        sessionData = {
+          rol: 'general',
+          usuario: GERENCIA_GENERAL.usuario,
+          nombre: GERENCIA_GENERAL.nombre,
+          cargo: GERENCIA_GENERAL.cargo,
+          codigo: GERENCIA_GENERAL.codigo,
+          loginTime: new Date().toISOString()
+        };
+      } else {
+        errEl.textContent = 'Credenciales incorrectas. Verifica tu usuario y contrasena.';
+        errEl.style.display = 'block';
+        return false;
+      }
+    }
+    // Handle Gerencia Divisional
+    else if(rol === 'divisional'){
+      const divisionales = JSON.parse(localStorage.getItem('enigme_divisionales') || '[]');
+      const divisional = divisionales.find(d => d.codigo.toLowerCase() === usuario && d.contrasena === contrasena);
+
+      if(divisional){
+        sessionData = {
+          rol: 'divisional',
+          usuario: divisional.codigo,
+          nombre: divisional.nombre,
+          codigo: divisional.codigo,
+          division: divisional.division,
+          dni: divisional.dni,
+          loginTime: new Date().toISOString()
+        };
+      } else {
+        errEl.textContent = 'Credenciales incorrectas. Verifica tu usuario y contrasena.';
+        errEl.style.display = 'block';
+        return false;
+      }
+    }
+    // Handle Gerencia de Zona
+    else if(rol === 'zona'){
+      const gerentes = JSON.parse(localStorage.getItem('enigme_gerentes') || '[]');
+      const gerente = gerentes.find(g => g.codigo.toLowerCase() === usuario && g.contrasena === contrasena);
+
+      if(gerente){
+        sessionData = {
+          rol: 'zona',
+          usuario: gerente.codigo,
+          nombre: gerente.nombre,
+          codigo: gerente.codigo,
+          zona: gerente.zona,
+          dni: gerente.dni,
+          loginTime: new Date().toISOString()
+        };
+      } else {
+        errEl.textContent = 'Credenciales incorrectas. Verifica tu usuario y contrasena.';
+        errEl.style.display = 'block';
+        return false;
+      }
+    }
+
+    // Save session and redirect
+    if(sessionData){
+      sessionStorage.setItem('enigme_session', JSON.stringify(sessionData));
+
+      const dashboards = {
+        general: 'dashboard-general.html',
+        divisional: 'dashboard-divisional.html',
+        zona: 'dashboard-zona.html'
+      };
+
+      window.location.href = dashboards[rol];
+      return false;
+    }
+
+    errEl.textContent = 'Error al procesar la solicitud.';
+    errEl.style.display = 'block';
+    return false;
+  }
+
+  // Initialize on page load
+  initializeStorage();
+
+  // Preselect role if passed as URL parameter
+  (function(){
+    const params = new URLSearchParams(window.location.search);
+    const rolParam = params.get('rol');
+    if(rolParam){
+      const sel = document.getElementById('rolSelect');
+      for(let i=0;i<sel.options.length;i++){
+        if(sel.options[i].value === rolParam){
+          sel.selectedIndex = i;
+          break;
+        }
+      }
+    }
+  })();
+</script>
+</body>
+</html>
